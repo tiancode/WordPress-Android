@@ -51,14 +51,14 @@ public class ReaderTagActions {
                 // delete tag & all related posts
                 ReaderTagTable.deleteTag(tag);
                 ReaderPostTable.deletePostsWithTag(tag);
-                path = "read/tags/" + tagNameForApi + "/mine/delete";
+                path = "/read/tags/" + tagNameForApi + "/mine/delete";
                 break;
 
             case ADD :
                 String endpoint = "/read/tags/" + tagNameForApi + "/posts";
                 ReaderTag newTopic = new ReaderTag(tag.getTagName(), endpoint, ReaderTagType.FOLLOWED);
                 ReaderTagTable.addOrUpdateTag(newTopic);
-                path = "read/tags/" + tagNameForApi + "/mine/new";
+                path = "/read/tags/" + tagNameForApi + "/mine/new";
                 break;
 
             default :
@@ -112,7 +112,7 @@ public class ReaderTagActions {
                 }
             }
         };
-        WordPress.getRestClientUtils().post(path, listener, errorListener);
+        WordPress.getRestClientUtilsV1_1().post(path, listener, errorListener);
 
         return true;
     }
