@@ -24,6 +24,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.wordpress.android.WordPress;
 import org.wordpress.android.util.AppLog;
 import org.wordpress.android.util.StringUtils;
+import org.wordpress.android.util.UrlUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,13 +58,12 @@ public class ReaderWebView extends WebView {
 
     private boolean mIsDestroyed;
     private static String mToken;
+    private boolean mHasPrivateImages;
 
     public ReaderWebView(Context context) {
         super(context);
         init(context);
     }
-
-
 
     @Override
     public void destroy() {
@@ -83,6 +83,13 @@ public class ReaderWebView extends WebView {
     public ReaderWebView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         init(context);
+    }
+
+    public boolean hasPrivateImages() {
+        return mHasPrivateImages;
+    }
+    public void setHasPrivateImages(boolean value) {
+        mHasPrivateImages = value;
     }
 
     @SuppressLint("NewApi")
@@ -211,7 +218,7 @@ public class ReaderWebView extends WebView {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
             // Intercept requests and add the WP.com authorization header
-            if (!TextUtils.isEmpty(mToken) && isImageUrl(url)) {
+            if (mReaderWebView.hasPrivateImages() && !TextUtils.isEmpty(mToken) && isImageUrl(url)) {
                 DefaultHttpClient client = new DefaultHttpClient();
                 HttpGet httpGet = new HttpGet(url);
                 httpGet.setHeader("Authorization", "Bearer " + mToken);
@@ -231,10 +238,12 @@ public class ReaderWebView extends WebView {
     private static boolean isImageUrl(String url) {
         if (TextUtils.isEmpty(url)) return false;
 
-        String lowerCaseUrl = url.toLowerCase();
+        String lowerCaseUrl = UrlUtils.removeQuery(url.toLowerCase());
 
-        return lowerCaseUrl.endsWith("jpg") || url.endsWith("jpeg") || url.endsWith("gif") ||
-                url.endsWith("png");
+        return lowerCaseUrl.endsWith("jpg")
+                || lowerCaseUrl.endsWith("jpeg")
+                || lowerCaseUrl.endsWith("gif")
+                || lowerCaseUrl.endsWith("png");
     }
 
     private static class ReaderWebChromeClient extends WebChromeClient {

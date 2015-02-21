@@ -718,6 +718,7 @@ public class ReaderPostDetailFragment extends Fragment
             mScrollView.setVisibility(View.VISIBLE);
 
             // render the post in the webView
+            mReaderWebView.setHasPrivateImages(mPost.isPrivate);
             mRenderer = new ReaderPostRenderer(mReaderWebView, mPost);
             mRenderer.beginRender();
 
