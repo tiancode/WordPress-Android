@@ -83,7 +83,10 @@ import de.greenrobot.event.EventBus;
 public class ReaderPostListFragment extends Fragment
         implements ReaderInterfaces.OnPostSelectedListener,
                    ReaderInterfaces.OnTagSelectedListener,
-                   ReaderInterfaces.OnPostPopupListener {
+                   ReaderInterfaces.OnPostPopupListener,
+                   ReaderInterfaces.DataLoadedListener,
+                   ReaderActions.DataRequestedListener,
+                   ReaderInterfaces.RequestReblogListener {
 
     private Spinner mSpinner;
     private ReaderTagSpinnerAdapter mSpinnerAdapter;
@@ -752,77 +755,71 @@ public class ReaderPostListFragment extends Fragment
     /*
      * called by post adapter when data has been loaded
      */
-    private final ReaderInterfaces.DataLoadedListener mDataLoadedListener = new ReaderInterfaces.DataLoadedListener() {
-        @Override
-        public void onDataLoaded(boolean isEmpty) {
-            if (!isAdded()) {
-                return;
-            }
-            if (isEmpty) {
-                setEmptyTitleAndDescription(false);
-                mEmptyView.setVisibility(View.VISIBLE);
-                if (shouldShowBoxAndPagesAnimation()) {
-                    startBoxAndPagesAnimation();
-                }
-            } else {
-                mEmptyView.setVisibility(View.GONE);
-                if (mRestorePosition > 0) {
-                    mRecyclerView.scrollToPosition(mRestorePosition);
-                }
-            }
-            mRestorePosition = 0;
+    @Override
+    public void onDataLoaded(boolean isEmpty) {
+        if (!isAdded()) {
+            return;
         }
-    };
+        if (isEmpty) {
+            setEmptyTitleAndDescription(false);
+            mEmptyView.setVisibility(View.VISIBLE);
+            if (shouldShowBoxAndPagesAnimation()) {
+                startBoxAndPagesAnimation();
+            }
+        } else {
+            mEmptyView.setVisibility(View.GONE);
+            if (mRestorePosition > 0) {
+                mRecyclerView.scrollToPosition(mRestorePosition);
+            }
+        }
+        mRestorePosition = 0;
+    }
 
     /*
      * called by post adapter to load older posts when user scrolls to the last post
      */
-    private final ReaderActions.DataRequestedListener mDataRequestedListener = new ReaderActions.DataRequestedListener() {
-        @Override
-        public void onRequestData() {
-            // skip if update is already in progress
-            if (isUpdating()) {
-                return;
-            }
-
-            // request older posts unless we already have the max # to show
-            switch (getPostListType()) {
-                case TAG_FOLLOWED:
-                case TAG_PREVIEW:
-                    if (ReaderPostTable.getNumPostsWithTag(mCurrentTag) < ReaderConstants.READER_MAX_POSTS_TO_DISPLAY) {
-                        // request older posts
-                        updatePostsWithTag(getCurrentTag(), RequestDataAction.LOAD_OLDER);
-                        AnalyticsTracker.track(AnalyticsTracker.Stat.READER_INFINITE_SCROLL);
-                    }
-                    break;
-
-                case BLOG_PREVIEW:
-                    int numPosts;
-                    if (mCurrentFeedId != 0) {
-                        numPosts = ReaderPostTable.getNumPostsInFeed(mCurrentFeedId);
-                    } else {
-                        numPosts = ReaderPostTable.getNumPostsInBlog(mCurrentBlogId);
-                    }
-                    if (numPosts < ReaderConstants.READER_MAX_POSTS_TO_DISPLAY) {
-                        updatePostsInCurrentBlogOrFeed(RequestDataAction.LOAD_OLDER);
-                        AnalyticsTracker.track(AnalyticsTracker.Stat.READER_INFINITE_SCROLL);
-                    }
-                    break;
-            }
+    @Override
+    public void onRequestData() {
+        // skip if update is already in progress
+        if (isUpdating()) {
+            return;
         }
-    };
+
+        // request older posts unless we already have the max # to show
+        switch (getPostListType()) {
+            case TAG_FOLLOWED:
+            case TAG_PREVIEW:
+                if (ReaderPostTable.getNumPostsWithTag(mCurrentTag) < ReaderConstants.READER_MAX_POSTS_TO_DISPLAY) {
+                    // request older posts
+                    updatePostsWithTag(getCurrentTag(), RequestDataAction.LOAD_OLDER);
+                    AnalyticsTracker.track(AnalyticsTracker.Stat.READER_INFINITE_SCROLL);
+                }
+                break;
+
+            case BLOG_PREVIEW:
+                int numPosts;
+                if (mCurrentFeedId != 0) {
+                    numPosts = ReaderPostTable.getNumPostsInFeed(mCurrentFeedId);
+                } else {
+                    numPosts = ReaderPostTable.getNumPostsInBlog(mCurrentBlogId);
+                }
+                if (numPosts < ReaderConstants.READER_MAX_POSTS_TO_DISPLAY) {
+                    updatePostsInCurrentBlogOrFeed(RequestDataAction.LOAD_OLDER);
+                    AnalyticsTracker.track(AnalyticsTracker.Stat.READER_INFINITE_SCROLL);
+                }
+                break;
+        }
+    }
 
     /*
      * called by post adapter when user requests to reblog a post
      */
-    private final ReaderInterfaces.RequestReblogListener mRequestReblogListener = new ReaderInterfaces.RequestReblogListener() {
-        @Override
-        public void onRequestReblog(ReaderPost post, View view) {
-            if (isAdded()) {
-                ReaderActivityLauncher.showReaderReblogForResult(getActivity(), post, view);
-            }
+    @Override
+    public void onRequestReblog(ReaderPost post, View view) {
+        if (isAdded()) {
+            ReaderActivityLauncher.showReaderReblogForResult(getActivity(), post, view);
         }
-    };
+    }
 
     private ReaderPostAdapter getPostAdapter() {
         if (mPostAdapter == null) {
@@ -832,9 +829,9 @@ public class ReaderPostListFragment extends Fragment
             mPostAdapter.setOnPostSelectedListener(this);
             mPostAdapter.setOnTagSelectedListener(this);
             mPostAdapter.setOnPostPopupListener(this);
-            mPostAdapter.setOnDataLoadedListener(mDataLoadedListener);
-            mPostAdapter.setOnDataRequestedListener(mDataRequestedListener);
-            mPostAdapter.setOnReblogRequestedListener(mRequestReblogListener);
+            mPostAdapter.setOnDataLoadedListener(this);
+            mPostAdapter.setOnDataRequestedListener(this);
+            mPostAdapter.setOnReblogRequestedListener(this);
         }
         return mPostAdapter;
     }
@@ -1021,7 +1018,7 @@ public class ReaderPostListFragment extends Fragment
             AppLog.i(T.READER, "reader post list > network unavailable, canceled tag update");
             return;
         }
-       ReaderPostService.startService(getActivity(), tag, updateAction);
+        ReaderPostService.startService(getActivity(), tag, updateAction);
     }
 
     boolean isUpdating() {
