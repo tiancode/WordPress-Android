@@ -423,14 +423,14 @@ public class ReaderPostPagerActivity extends ActionBarActivity
                 ReaderPostService.startServiceForTag(
                         this,
                         getCurrentTag(),
-                        ReaderActions.RequestDataAction.LOAD_OLDER);
+                        ReaderPostService.UpdateAction.REQUEST_OLDER);
                 break;
 
             case BLOG_PREVIEW:
                 ReaderPostService.startServiceForBlog(
                         this,
                         mBlogId,
-                        ReaderActions.RequestDataAction.LOAD_OLDER);
+                        ReaderPostService.UpdateAction.REQUEST_OLDER);
                 break;
         }
     }

@@ -2,6 +2,7 @@ package org.wordpress.android.ui.reader;
 
 import org.wordpress.android.models.ReaderTag;
 import org.wordpress.android.ui.reader.actions.ReaderActions;
+import org.wordpress.android.ui.reader.services.ReaderPostService;
 import org.wordpress.android.util.DateTimeUtils;
 
 import java.util.Date;
@@ -30,11 +31,11 @@ public class ReaderEvents {
     }
 
     public static class UpdatePostsStarted {
-        private final ReaderActions.RequestDataAction mAction;
-        public UpdatePostsStarted(ReaderActions.RequestDataAction action) {
+        private final ReaderPostService.UpdateAction mAction;
+        public UpdatePostsStarted(ReaderPostService.UpdateAction action) {
             mAction = action;
         }
-        public ReaderActions.RequestDataAction getAction() {
+        public ReaderPostService.UpdateAction getAction() {
             return mAction;
         }
     }
@@ -42,16 +43,16 @@ public class ReaderEvents {
     public static class UpdatePostsEnded {
         private final ReaderTag mReaderTag;
         private final ReaderActions.UpdateResult mResult;
-        private final ReaderActions.RequestDataAction mAction;
+        private final ReaderPostService.UpdateAction mAction;
         public UpdatePostsEnded(ReaderActions.UpdateResult result,
-                                ReaderActions.RequestDataAction action) {
+                                ReaderPostService.UpdateAction action) {
             mResult = result;
             mAction = action;
             mReaderTag = null;
         }
         public UpdatePostsEnded(ReaderTag readerTag,
                                 ReaderActions.UpdateResult result,
-                                ReaderActions.RequestDataAction action) {
+                                ReaderPostService.UpdateAction action) {
             mReaderTag = readerTag;
             mResult = result;
             mAction = action;
@@ -62,7 +63,7 @@ public class ReaderEvents {
         public ReaderActions.UpdateResult getResult() {
             return mResult;
         }
-        public ReaderActions.RequestDataAction getAction() {
+        public ReaderPostService.UpdateAction getAction() {
             return mAction;
         }
     }

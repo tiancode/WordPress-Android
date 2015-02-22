@@ -20,7 +20,6 @@ import org.wordpress.android.models.ReaderTagType;
 import org.wordpress.android.ui.reader.ReaderConstants;
 import org.wordpress.android.ui.reader.ReaderEvents;
 import org.wordpress.android.ui.reader.actions.ReaderActions;
-import org.wordpress.android.ui.reader.actions.ReaderActions.RequestDataAction;
 import org.wordpress.android.ui.reader.utils.ReaderUtils;
 import org.wordpress.android.util.AppLog;
 import org.wordpress.android.util.StringUtils;
@@ -29,8 +28,8 @@ import org.wordpress.android.util.UrlUtils;
 import de.greenrobot.event.EventBus;
 
 /**
- * service which updates posts with specific tags or in specific blogs/feeds - relies on EventBus
- * to alert of updated started/ended and new/changed posts
+ * service which updates posts with specific tags or in specific blogs/feeds - relies on
+ * EventBus to alert of update status
  */
 
 public class ReaderPostService extends Service {
@@ -40,10 +39,12 @@ public class ReaderPostService extends Service {
     private static final String ARG_BLOG_ID = "blog_id";
     private static final String ARG_FEED_ID = "feed_id";
 
+    public static enum UpdateAction {REQUEST_NEWER, REQUEST_OLDER}
+
     /*
      * update posts with the passed tag
      */
-    public static void startServiceForTag(Context context, ReaderTag tag, RequestDataAction action) {
+    public static void startServiceForTag(Context context, ReaderTag tag, UpdateAction action) {
         Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_TAG, tag);
         intent.putExtra(ARG_ACTION, action);
@@ -53,7 +54,7 @@ public class ReaderPostService extends Service {
     /*
      * update posts in the passed blog
      */
-    public static void startServiceForBlog(Context context, long blogId, RequestDataAction action) {
+    public static void startServiceForBlog(Context context, long blogId, UpdateAction action) {
         Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_BLOG_ID, blogId);
         intent.putExtra(ARG_ACTION, action);
@@ -63,7 +64,7 @@ public class ReaderPostService extends Service {
     /*
      * update posts in the passed feed
      */
-    public static void startServiceForFeed(Context context, long feedId, RequestDataAction action) {
+    public static void startServiceForFeed(Context context, long feedId, UpdateAction action) {
         Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_FEED_ID, feedId);
         intent.putExtra(ARG_ACTION, action);
@@ -93,11 +94,11 @@ public class ReaderPostService extends Service {
             return START_NOT_STICKY;
         }
 
-        RequestDataAction action;
+        UpdateAction action;
         if (intent.hasExtra(ARG_ACTION)) {
-            action = (RequestDataAction) intent.getSerializableExtra(ARG_ACTION);
+            action = (UpdateAction) intent.getSerializableExtra(ARG_ACTION);
         } else {
-            action = RequestDataAction.LOAD_NEWER;
+            action = UpdateAction.REQUEST_NEWER;
         }
 
         if (intent.hasExtra(ARG_TAG)) {
@@ -114,7 +115,7 @@ public class ReaderPostService extends Service {
         return START_NOT_STICKY;
     }
 
-    void updatePostsWithTag(final ReaderTag tag, final RequestDataAction action) {
+    void updatePostsWithTag(final ReaderTag tag, final UpdateAction action) {
         requestPostsWithTag(
                 tag,
                 action,
@@ -128,7 +129,7 @@ public class ReaderPostService extends Service {
         EventBus.getDefault().post(new ReaderEvents.UpdatePostsStarted(action));
     }
 
-    void updatePostsInBlog(long blogId, final RequestDataAction action) {
+    void updatePostsInBlog(long blogId, final UpdateAction action) {
         ReaderActions.UpdateResultListener listener = new ReaderActions.UpdateResultListener() {
             @Override
             public void onUpdateResult(ReaderActions.UpdateResult result) {
@@ -139,7 +140,7 @@ public class ReaderPostService extends Service {
         requestPostsForBlog(blogId, action, listener);
     }
 
-    void updatePostsInFeed(long feedId, final RequestDataAction action) {
+    void updatePostsInFeed(long feedId, final UpdateAction action) {
         ReaderActions.UpdateResultListener listener = new ReaderActions.UpdateResultListener() {
             @Override
             public void onUpdateResult(ReaderActions.UpdateResult result) {
@@ -151,7 +152,7 @@ public class ReaderPostService extends Service {
     }
 
     private static void requestPostsWithTag(final ReaderTag tag,
-                                            final RequestDataAction updateAction,
+                                            final UpdateAction updateAction,
                                             final ReaderActions.UpdateResultListener resultListener) {
         String endpoint = getEndpointForTag(tag);
         if (TextUtils.isEmpty(endpoint)) {
@@ -170,7 +171,7 @@ public class ReaderPostService extends Service {
         sb.append("&order=DESC");
 
         // if older posts are being requested, add the &before param based on the oldest existing post
-        if (updateAction == RequestDataAction.LOAD_OLDER) {
+        if (updateAction == UpdateAction.REQUEST_OLDER) {
             String dateOldest = ReaderPostTable.getOldestPubDateWithTag(tag);
             if (!TextUtils.isEmpty(dateOldest)) {
                 sb.append("&before=").append(UrlUtils.urlEncode(dateOldest));
@@ -181,7 +182,7 @@ public class ReaderPostService extends Service {
             @Override
             public void onResponse(JSONObject jsonObject) {
                 // remember when this tag was updated if newer posts were requested
-                if (updateAction == RequestDataAction.LOAD_NEWER) {
+                if (updateAction == UpdateAction.REQUEST_NEWER) {
                     ReaderTagTable.setTagLastUpdated(tag);
                 }
                 handleUpdatePostsResponse(tag, jsonObject, resultListener);
@@ -202,12 +203,12 @@ public class ReaderPostService extends Service {
 
 
     private static void requestPostsForBlog(final long blogId,
-                                            final RequestDataAction updateAction,
+                                            final UpdateAction updateAction,
                                             final ReaderActions.UpdateResultListener resultListener) {
         String path = "/sites/" + blogId + "/posts/?meta=site,likes";
 
         // append the date of the oldest cached post in this blog when requesting older posts
-        if (updateAction == RequestDataAction.LOAD_OLDER) {
+        if (updateAction == UpdateAction.REQUEST_OLDER) {
             String dateOldest = ReaderPostTable.getOldestPubDateInBlog(blogId);
             if (!TextUtils.isEmpty(dateOldest)) {
                 path += "&before=" + UrlUtils.urlEncode(dateOldest);
@@ -234,10 +235,10 @@ public class ReaderPostService extends Service {
     }
 
     private static void requestPostsForFeed(final long feedId,
-                                            final RequestDataAction updateAction,
+                                            final UpdateAction updateAction,
                                             final ReaderActions.UpdateResultListener resultListener) {
         String path = "/read/feed/" + feedId + "/posts/?meta=site,likes";
-        if (updateAction == RequestDataAction.LOAD_OLDER) {
+        if (updateAction == UpdateAction.REQUEST_OLDER) {
             String dateOldest = ReaderPostTable.getOldestPubDateInFeed(feedId);
             if (!TextUtils.isEmpty(dateOldest)) {
                 path += "&before=" + UrlUtils.urlEncode(dateOldest);
@@ -350,4 +351,5 @@ public class ReaderPostService extends Service {
         }
         return StringUtils.notNullStr(endpoint);
     }
+
 }
