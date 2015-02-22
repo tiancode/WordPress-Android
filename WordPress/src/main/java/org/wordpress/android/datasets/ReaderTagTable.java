@@ -229,7 +229,7 @@ public class ReaderTagTable {
     }
 
 
-    public static String getTagLastUpdated(ReaderTag tag) {
+    private static String getTagLastUpdated(ReaderTag tag) {
         if (tag == null) {
             return "";
         }
@@ -240,7 +240,7 @@ public class ReaderTagTable {
     }
 
     public static void setTagLastUpdated(ReaderTag tag) {
-       if (tag == null) {
+        if (tag == null) {
             return;
         }
 
@@ -250,7 +250,7 @@ public class ReaderTagTable {
         try {
             stmt.bindString(1, date);
             stmt.bindString(2, tag.getTagName());
-            stmt.bindLong  (3, tag.tagType.toInt());
+            stmt.bindLong(3, tag.tagType.toInt());
             stmt.execute();
         } finally {
             SqlUtils.closeStatement(stmt);
