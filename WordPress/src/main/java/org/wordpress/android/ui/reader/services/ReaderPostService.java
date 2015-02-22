@@ -29,7 +29,8 @@ import org.wordpress.android.util.UrlUtils;
 import de.greenrobot.event.EventBus;
 
 /**
- * service which updates posts with specific tags or in specific blogs/feeds
+ * service which updates posts with specific tags or in specific blogs/feeds - relies on EventBus
+ * to alert of updated started/ended and new/changed posts
  */
 
 public class ReaderPostService extends Service {
@@ -39,21 +40,31 @@ public class ReaderPostService extends Service {
     private static final String ARG_BLOG_ID = "blog_id";
     private static final String ARG_FEED_ID = "feed_id";
 
-    public static void startService(Context context,
-                                    ReaderTag tag,
-                                    RequestDataAction action) {
+    /*
+     * update posts with the passed tag
+     */
+    public static void startServiceForTag(Context context, ReaderTag tag, RequestDataAction action) {
         Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_TAG, tag);
         intent.putExtra(ARG_ACTION, action);
         context.startService(intent);
     }
 
-    public static void startService(Context context,
-                                    long blogId,
-                                    long feedId,
-                                    RequestDataAction action) {
+    /*
+     * update posts in the passed blog
+     */
+    public static void startServiceForBlog(Context context, long blogId, RequestDataAction action) {
         Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_BLOG_ID, blogId);
+        intent.putExtra(ARG_ACTION, action);
+        context.startService(intent);
+    }
+
+    /*
+     * update posts in the passed feed
+     */
+    public static void startServiceForFeed(Context context, long feedId, RequestDataAction action) {
+        Intent intent = new Intent(context, ReaderPostService.class);
         intent.putExtra(ARG_FEED_ID, feedId);
         intent.putExtra(ARG_ACTION, action);
         context.startService(intent);
@@ -92,10 +103,12 @@ public class ReaderPostService extends Service {
         if (intent.hasExtra(ARG_TAG)) {
             ReaderTag tag = (ReaderTag) intent.getSerializableExtra(ARG_TAG);
             updatePostsWithTag(tag, action);
-        } else if (intent.hasExtra(ARG_BLOG_ID) || intent.hasExtra(ARG_FEED_ID)) {
+        } else if (intent.hasExtra(ARG_BLOG_ID)) {
             long blogId = intent.getLongExtra(ARG_BLOG_ID, 0);
+            updatePostsInBlog(blogId, action);
+        } else if (intent.hasExtra(ARG_FEED_ID)) {
             long feedId = intent.getLongExtra(ARG_FEED_ID, 0);
-            updatePostsInBlogOrFeed(blogId, feedId, action);
+            updatePostsInFeed(feedId, action);
         }
 
         return START_NOT_STICKY;
@@ -115,7 +128,7 @@ public class ReaderPostService extends Service {
         EventBus.getDefault().post(new ReaderEvents.UpdatePostsStarted(action));
     }
 
-    void updatePostsInBlogOrFeed(long blogId, long feedId, final RequestDataAction action) {
+    void updatePostsInBlog(long blogId, final RequestDataAction action) {
         ReaderActions.UpdateResultListener listener = new ReaderActions.UpdateResultListener() {
             @Override
             public void onUpdateResult(ReaderActions.UpdateResult result) {
@@ -123,17 +136,20 @@ public class ReaderPostService extends Service {
                 stopSelf();
             }
         };
-        if (feedId != 0) {
-            requestPostsForFeed(feedId, action, listener);
-        } else {
-            requestPostsForBlog(blogId, action, listener);
-        }
+        requestPostsForBlog(blogId, action, listener);
     }
 
-    /*
-     * get the latest posts in the passed topic - note that this uses an UpdateResultAndCountListener
-     * so the caller can be told how many new posts were added
-     */
+    void updatePostsInFeed(long feedId, final RequestDataAction action) {
+        ReaderActions.UpdateResultListener listener = new ReaderActions.UpdateResultListener() {
+            @Override
+            public void onUpdateResult(ReaderActions.UpdateResult result) {
+                EventBus.getDefault().post(new ReaderEvents.UpdatePostsEnded(result, action));
+                stopSelf();
+            }
+        };
+        requestPostsForFeed(feedId, action, listener);
+    }
+
     private static void requestPostsWithTag(final ReaderTag tag,
                                             final RequestDataAction updateAction,
                                             final ReaderActions.UpdateResultListener resultListener) {
@@ -197,6 +213,7 @@ public class ReaderPostService extends Service {
                 path += "&before=" + UrlUtils.urlEncode(dateOldest);
             }
         }
+
         com.wordpress.rest.RestRequest.Listener listener = new RestRequest.Listener() {
             @Override
             public void onResponse(JSONObject jsonObject) {

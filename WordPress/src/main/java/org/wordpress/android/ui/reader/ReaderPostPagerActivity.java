@@ -420,17 +420,16 @@ public class ReaderPostPagerActivity extends ActionBarActivity
         switch (getPostListType()) {
             case TAG_PREVIEW:
             case TAG_FOLLOWED:
-                ReaderPostService.startService(
+                ReaderPostService.startServiceForTag(
                         this,
                         getCurrentTag(),
                         ReaderActions.RequestDataAction.LOAD_OLDER);
                 break;
 
             case BLOG_PREVIEW:
-                ReaderPostService.startService(
+                ReaderPostService.startServiceForBlog(
                         this,
                         mBlogId,
-                        0,
                         ReaderActions.RequestDataAction.LOAD_OLDER);
                 break;
         }
@@ -457,8 +456,6 @@ public class ReaderPostPagerActivity extends ActionBarActivity
             AppLog.d(AppLog.T.READER, "reader pager > older posts received");
             // remember which post to keep active
             ReaderBlogIdPostId id = getPagerAdapter().getCurrentBlogIdPostId();
-            // if this is an end fragment, get the previous post and tell loadPosts() to
-            // move to the post after it (ie: show the first new post)
             long blogId = (id != null ? id.getBlogId() : 0);
             long postId = (id != null ? id.getPostId() : 0);
             loadPosts(blogId, postId);

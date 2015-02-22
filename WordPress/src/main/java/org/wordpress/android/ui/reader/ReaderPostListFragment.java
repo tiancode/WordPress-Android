@@ -972,7 +972,12 @@ public class ReaderPostListFragment extends Fragment
             AppLog.i(T.READER, "reader post list > network unavailable, canceled blog update");
             return;
         }
-        ReaderPostService.startService(getActivity(), mCurrentBlogId, mCurrentFeedId, updateAction);
+        if (mCurrentFeedId != 0) {
+            ReaderPostService.startServiceForFeed(getActivity(), mCurrentFeedId, updateAction);
+        } else {
+            ReaderPostService.startServiceForBlog(getActivity(), mCurrentBlogId, updateAction);
+        }
+
     }
 
     void updateCurrentTag() {
@@ -1018,7 +1023,7 @@ public class ReaderPostListFragment extends Fragment
             AppLog.i(T.READER, "reader post list > network unavailable, canceled tag update");
             return;
         }
-        ReaderPostService.startService(getActivity(), tag, updateAction);
+        ReaderPostService.startServiceForTag(getActivity(), tag, updateAction);
     }
 
     boolean isUpdating() {
